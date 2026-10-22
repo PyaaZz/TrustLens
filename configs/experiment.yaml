@@ -1,0 +1,52 @@
+# TrustLens Experiment Configuration
+
+project:
+  name: TrustLens
+  seed: 42
+  device: auto  # auto, cuda, cpu
+
+data:
+  dataset: CIFAR-10
+  data_dir: ./data
+  batch_size: 128
+  val_split: 0.1
+  num_workers: 4
+
+model:
+  architecture: resnet18
+  num_classes: 10
+  checkpoint_dir: ./models/checkpoints
+
+training:
+  epochs: 100
+  learning_rate: 0.1
+  momentum: 0.9
+  weight_decay: 0.0005
+  scheduler: cosine
+
+corruption:
+  types: all  # 'all' or list of specific types
+  severities: [1, 2, 3, 4, 5]
+  held_out: [frost, fog, brightness]  # corruptions held out for generalization test
+
+signals:
+  use_msp: true
+  use_entropy: true
+  use_energy: true
+  use_feature_distance: true
+  feature_distance_method: mahalanobis  # mahalanobis or knn
+  knn_k: 10
+
+detector:
+  combination_method: logistic  # logistic, threshold, mlp
+  threshold: 0.5
+  target_fpr: 0.05
+
+evaluation:
+  metrics: [auroc, aupr, fpr95, accuracy, ece]
+  n_calibration_bins: 15
+
+results:
+  results_dir: ./results
+  figures_dir: ./results/figures
+  metrics_dir: ./results/metrics
