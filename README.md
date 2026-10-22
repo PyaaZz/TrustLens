@@ -1,43 +1,72 @@
-# TrustLens: AI Prediction Reliability & Failure Detection
+# TrustLens — AI Prediction Reliability Detection
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit](https://img.shields.io/badge/dashboard-Streamlit-FF4B4B.svg)](https://streamlit.io/)
 
-Standard neural networks are notoriously overconfident. Under distribution shift—such as blur, bad weather, or sensor noise—a classifier will frequently output a completely wrong prediction with 95%+ confidence. 
-
-**TrustLens** is a monitoring system that flags when a model's predictions shouldn't be trusted. Instead of relying only on raw softmax confidence, it extracts and combines multiple uncertainty signals (softmax entropy, free energy, temperature calibration, and penultimate feature distance) to catch failures before they reach production decisions.
+**TrustLens** is a framework for detecting when deep learning classifiers are likely to make mistakes. Rather than blindly trusting raw softmax probabilities under distribution shift or out of distribution (OOD) inputs, TrustLens combines multilayer epistemic uncertainty indicators Max Softmax Probability (MSP), predictive entropy, free energy score, post hoc temperature calibration, and deep Mahalanobis/KNN feature space distances into a unified failure detector that flags untrustworthy predictions before they compromise downstream decision systems.
 
 ---
 
-## The Problem: Confident Failures
+## Architecture Overview
 
-When testing a ResNet-18 trained on CIFAR-10 against corrupted images (CIFAR-10-C):
-- Accuracy drops sharply as corruption severity increases (from ~95% down to <60%).
-- However, the model still outputs high confidence scores on wrong answers.
-- Simple confidence thresholding (MSP) misses many of these failures.
-
-TrustLens extracts complementary signals from different stages of the forward pass to detect when an input has drifted away from familiar training data.
+```
+                      +---------------------------------------+
+                      |             Input Image               |
+                      +---------------------------------------+
+                                          |
+                                          v
+                      +---------------------------------------+
+                      |      ResNet-18 Vision Backbone        |
+                      +---------------------------------------+
+                                    /           \
+               Deep Feature Vectors/             \ Raw Logits
+                                  /               \
+                                 v                 v
+                 +-------------------+     +-------------------+
+                 | Feature Extractor |     | Softmax / Scaling |
+                 +-------------------+     +-------------------+
+                           |                         |
+                           v                         v
+            +-----------------------------+   +-----------------------------+
+            |  Deep Feature Distances     |   | Probability & Energy Signal |
+            |  - Class Mahalanobis dist   |   | - Max Softmax Prob (MSP)    |
+            |  - KNN Nearest Neighbor     |   | - Predictive Entropy        |
+            +-----------------------------+   | - Free Energy Score         |
+                           \                  | - Temperature Calibrated ECE|
+                            \                 +-----------------------------+
+                             \                       /
+                              v                     v
+                     +---------------------------------------+
+                     |        Failure Detector Engine        |
+                     |  - Logistic / Ridge / Multi-signal    |
+                     |  - Threshold calibrated @ Target FPR  |
+                     +---------------------------------------+
+                                          |
+                                          v
+                     +---------------------------------------+
+                     |    Prediction Reliability Report      |
+                     |  [PASS / RELIABLE]  (Green)           |
+                     |  [WARNING / DEGRADED] (Yellow)        |
+                     |  [REJECT / UNRELIABLE] (Red)          |
+                     +---------------------------------------+
+```
 
 ---
 
-## How It Works
+## Key Features
 
-TrustLens combines four distinct uncertainty indicators:
-
-| Signal | Source | What it Measures |
-| :--- | :--- | :--- |
-| **Max Softmax Probability (MSP)** | Output layer | Peak confidence of the model's top prediction. Fast baseline, but prone to overconfidence. |
-| **Predictive Entropy** | Probability vector | How spread out the predictions are across all classes. High entropy indicates confusion. |
-| **Free Energy Score** | Raw logits | Negative log-sum-exp of logits. Aligns with input density and doesn't suffer from softmax normalization squash. |
-| **Mahalanobis Feature Distance** | Penultimate layer | Geometric distance of the image embedding to the nearest training class cluster centroid. Catches covariate shift. |
-| **Temperature Scaling** | Post-processing | Recalibrates output probabilities using a learned validation temperature $T$ to reduce Expected Calibration Error (ECE). |
-
-A lightweight failure detector combines these signals to assign each prediction a risk score and a clear status:
-- 🟢 **Pass / Reliable:** High confidence, low entropy, sits inside known feature clusters.
-- 🟡 **Caution / Degraded:** Elevated entropy or feature drift detected. Human oversight recommended.
-- 🔴 **Reject / High Risk:** Severe distribution shift or out-of-distribution input. Automatic decision withheld.
+- **Multi-Signal Reliability Profiling**:
+- **Max Softmax Probability (MSP)**: Baseline confidence indicator ([Hendrycks & Gimpel, 2017](https://arxiv.org/abs/1610.02136)).
+- **Predictive Shannon Entropy**: Dispersal of predicted class probability distributions.
+- **Free Energy Score**: Unnormalized negative free energy tracking log-sum-exp density ([Liu et al., 2020](https://arxiv.org/abs/2010.03759)).
+- **Deep Feature Space Distance**: Mahalanobis distance to class-conditional Gaussian centroids with shared covariance ([Lee et al., 2018](https://arxiv.org/abs/1807.03888)) and k-nearest neighbors.
+- **Temperature-Calibrated Probabilities**: Platt-scaled logits optimizing negative log-likelihood for well-calibrated ECE ([Guo et al., 2017](https://arxiv.org/abs/1706.04599)).
+- **Distribution Shift Evaluation**: Systematic benchmarking on CIFAR-10-C across 19 corruption categories at 5 severity levels ([Hendrycks & Dietterich, 2019](https://arxiv.org/abs/1903.12261)).
+- **Actionable Thresholding**: Configurable operating points tuned to fixed False Positive Rates (e.g., FPR@95TPR) to minimize safety-critical false acceptances.
+- **Interactive Streamlit Dashboard**: Full GUI for real-time single-sample inference, corruption sensitivity heatmaps, ROC/PR curves, and ablation studies.
+- **Modular & Extensible**: Modular structure decoupling datasets, models, signal extractors, calibration, and evaluators.
 
 ---
 
@@ -45,107 +74,152 @@ A lightweight failure detector combines these signals to assign each prediction 
 
 ```
 TrustLens/
-├── configs/             # Experiment parameters and data paths
-├── dashboard/           # Streamlit web app (interactive UI)
-├── data/                # Dataset loaders and CIFAR-10-C scripts
-├── models/              # ResNet-18 architecture adapted for 32x32 images
-├── src/                 # Core algorithms: signals, calibration, metrics, detectors
-├── experiments/         # Standalone scripts for baseline, shift tests, ablation
-├── results/             # Saved evaluation metrics (JSON) and figures (PNG)
-└── tests/               # 33 unit tests covering signals, metrics, and calibration
+├── configs/
+│   └── experiment.yaml          # Hyperparameters and pipeline configuration
+├── dashboard/
+│   └── app.py                   # Streamlit interactive web dashboard
+├── data/
+│   └── README.md                # Dataset download instructions (CIFAR-10, CIFAR-10-C)
+├── models/
+│   ├── __init__.py              # Model interfaces
+│   ├── classifier.py            # ResNet-18 architecture, training & evaluation loops
+│   └── checkpoints/             # Trained model weights (.pt/.pth)
+├── src/
+│   ├── __init__.py              # Unified package exports
+│   ├── calibration.py           # Temperature scaling, ECE, reliability diagrams
+│   ├── data_loader.py           # CIFAR-10 and CIFAR-10-C loaders & down-loaders
+│   ├── failure_detector.py      # Failure detection classifiers and thresholding
+│   ├── feature_detector.py      # Feature extraction and Mahalanobis/KNN distances
+│   ├── inference.py             # Single-sample and batch inference routines
+│   ├── metrics.py               # AUROC, AUPR, FPR@95, ECE, MetricsTracker
+│   └── signals.py               # Signal calculations (MSP, Entropy, Energy)
+├── tests/
+│   ├── __init__.py
+│   ├── test_calibration.py      # Calibration and ECE unit tests
+│   ├── test_metrics.py          # Detection metrics unit tests
+│   └── test_signals.py          # Uncertainty signals unit tests
+├── results/
+│   ├── figures/                 # Generated ROC, PR, and corruption heatmap plots
+│   └── metrics/                 # JSON/CSV evaluation metrics
+├── .gitignore                   # Git ignore patterns
+├── README.md                    # Project documentation
+└── requirements.txt             # Project Python dependencies
 ```
 
 ---
 
-## Quickstart
+## Quick Start
 
-### 1. Setup Environment
+### 1. Installation
+Clone repository and install requirements in your environment:
 ```bash
 git clone https://github.com/your-username/TrustLens.git
 cd TrustLens
-
-# Create virtual environment
 python -m venv .venv
-
-# Activate environment:
-# Windows (cmd):
-.venv\Scripts\activate.bat
-# Linux / macOS:
+# Windows:
+.venv\Scripts\activate
+# Linux/macOS:
 source .venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Verify Installation
-Run the test suite to ensure all signal calculations and calibration routines pass:
+### 2. Dataset Preparation
+CIFAR-10 is automatically downloaded by torchvision upon running inference or training.
+For CIFAR-10-C corruptions:
 ```bash
-pytest tests/ -v
+python -c "from src.data_loader import download_cifar10c; download_cifar10c('./data')"
 ```
+Alternatively, follow manual instructions in [`data/README.md`](data/README.md).
 
-### 3. Launch the Dashboard
-Run the interactive Streamlit interface to test custom images and inspect corruption experiments:
-```bash
-streamlit run dashboard/app.py
-```
-*(On first run, the app will automatically fetch the pretrained 94.5% ResNet-18 checkpoint).*
-
----
-
-## Running Experiments
-
-You can reproduce all paper-style benchmarks individually or end-to-end:
-
-### Train the Baseline Classifier (Week 1)
-Trains ResNet-18 on clean CIFAR-10 and saves checkpoints and confusion matrices:
+### 3. Training the Base Model
+Train the ResNet-18 classifier on clean CIFAR-10:
 ```bash
 python experiments/baseline.py --epochs 100 --batch-size 128 --device auto
 ```
 
-### Test Against Distribution Shift (Week 2)
-Evaluates accuracy degradation across all 19 CIFAR-10-C corruptions and logs confident failures:
+### 4. Running Failure & OOD Detection Experiments
+Evaluate reliability signals across clean and corrupted sets:
 ```bash
-python -c "from src.data_loader import download_cifar10c; download_cifar10c('./data')"
 python experiments/corruption_test.py --device auto
-```
-
-### Evaluate Reliability Signals (Week 3)
-Computes AUROC, AUPR, and FPR@95%TPR for each individual signal and fits temperature scaling:
-```bash
 python experiments/evaluate.py --device auto
-```
-
-### Run Ablation & Generalization (Weeks 4–5)
-Trains the combined failure detector, runs leave-one-out ablations, and tests generalization on held-out corruption modes (`frost`, `fog`, `brightness`):
-```bash
 python experiments/ablation.py --device auto
 ```
 
-### Run Everything in Sequence
+### 5. Launching the Interactive Dashboard
+Launch the TrustLens Streamlit dashboard:
 ```bash
-python experiments/run_all.py --config configs/experiment.yaml --device auto
+streamlit run dashboard/app.py
+```
+
+### 6. Running Unit Tests
+Execute the pytest suite:
+```bash
+pytest tests/ -v
 ```
 
 ---
 
-## Key Experimental Takeaways
+## Methodology
 
-- **Single signals aren't enough:** MSP performs reasonably on clean data but fails on heavy blur and noise. Feature distance excels at detecting corrupted inputs but is less sensitive to borderline cases. Combining them yields higher AUROC.
-- **Generalization to unseen shifts:** The combined detector trained on 16 corruption types maintains >92% AUROC when tested on completely unseen corruption families (frost, fog).
-- **Low latency:** Extracting feature distances and computing entropy adds under ~2.5 ms per sample on CPU, making it practical for real-time inference monitoring.
+TrustLens operates on the premise that no single heuristic is universally reliable across all failure modes:
+
+| Signal | Source | Formulation | Strengths & Failure Modes |
+| :--- | :--- | :--- | :--- |
+| **Max Softmax Probability (MSP)** | Softmax output | $\max_k \frac{e^{z_k}}{\sum_j e^{z_j}}$ | Computationally trivial; suffers from softmax overconfidence on far-OOD inputs. |
+| **Predictive Entropy** | Softmax distribution | $-\sum_k p_k \log p_k$ | Measures distribution flatness; high near decision boundaries, but can stay artificially low on far-OOD. |
+| **Free Energy Score** | Raw logits | $-T \cdot \log \sum_k e^{z_k / T}$ | Theoretically aligned with input density; robust against softmax normalization distortion. |
+| **Mahalanobis Feature Distance** | Penultimate layer | $\min_c (h(x) - \mu_c)^T \Sigma^{-1} (h(x) - \mu_c)$ | Measures true geometric distance in feature space; highly sensitive to distribution shifts and covariate shift. |
+| **Temperature Calibration** | Post-hoc scaling | $\sigma(z / T)$ | Recalibrates confidence estimates on clean val set to reflect true posterior probability. |
+
+By fusing these signals through a calibrated detector (e.g. regularized logistic regression on validation misclassifications), TrustLens identifies errors caused by:
+- Borderline instances near decision boundaries.
+- In-distribution model misclassifications.
+- Natural corruptions and covariate shifts (blur, weather, digital noise).
+- Out-of-distribution instances.
+
+---
+
+## Experiments & Benchmarks
+
+- **Clean Test Baseline**: Baseline classification accuracy and expected calibration error (ECE) before and after temperature scaling.
+- **CIFAR-10-C Robustness**: Performance degradation across 19 corruption types with 5 severity tiers.
+- **Signal Discriminative Power**: AUROC, AUPR, and FPR@95TPR for detecting incorrect classifications.
+- **Generalization to Unseen Corruptions**: Train failure detector on 16 corruptions and test zero-shot on 3 held-out corruption modes (`frost`, `fog`, `brightness`).
+- **Ablation Studies**: Evaluating individual signal performance versus joint multi-signal ensembles.
+- **Inference Latency Tradeoff**: Overhead of feature extraction and distance calculations versus standard inference.
+
+---
+
+## Results & Visualizations
+
+Pre-computed evaluation summaries and plots are stored under `results/`:
+- **ROC and Precision-Recall Curves**: Comparison of individual signals vs. TrustLens ensemble.
+- **Calibration Diagrams**: Pre- and post-temperature scaling reliability curves.
+- **Corruption Breakdown Heatmap**: Performance stability matrix across corruption categories and severity levels.
+
+*(Launch the Streamlit dashboard via `streamlit run dashboard/app.py` for interactive exploration of all benchmark results and live sample diagnostics).*
+
+---
+
+## Limitations
+
+- **Feature Covariance Inversion**: For ultra-high dimensional representations, calculating full precision empirical covariance matrices can be ill-conditioned without shrinkage or diagonal approximations.
+- **Computational Overhead**: Computing nearest neighbor or full Mahalanobis distances adds inference latency compared to simple forward-pass softmax readouts.
+- **Severe Distribution Shift**: Under extreme semantic shifts, deep feature spaces can undergo unpredictable representations if the backbone has poor domain generalization.
 
 ---
 
 ## References
 
-- Hendrycks & Gimpel (2017). *A Baseline for Detecting Misclassified and Out-of-Distribution Examples in Neural Networks*. [arXiv:1610.02136](https://arxiv.org/abs/1610.02136)
-- Guo et al. (2017). *On Calibration of Modern Neural Networks*. [arXiv:1706.04599](https://arxiv.org/abs/1706.04599)
-- Lee et al. (2018). *A Simple Unified Framework for Detecting Out-of-Distribution Samples and Adversarial Attacks*. [arXiv:1807.03888](https://arxiv.org/abs/1807.03888)
-- Hendrycks & Dietterich (2019). *Benchmarking Neural Network Robustness to Common Corruptions and Perturbations*. [arXiv:1903.12261](https://arxiv.org/abs/1903.12261)
-- Liu et al. (2020). *Energy-based Out-of-distribution Detection*. [arXiv:2010.03759](https://arxiv.org/abs/2010.03759)
+1. **Hendrycks, D., & Gimpel, K.** (2017). *A Baseline for Detecting Misclassified and Out-of-Distribution Examples in Neural Networks*. ICLR 2017. [arXiv:1610.02136](https://arxiv.org/abs/1610.02136)
+2. **Guo, C., Pleiss, G., Sun, Y., & Weinberger, K. Q.** (2017). *On Calibration of Modern Neural Networks*. ICML 2017. [arXiv:1706.04599](https://arxiv.org/abs/1706.04599)
+3. **Lee, K., Lee, K., Lee, H., & Shin, J.** (2018). *A Simple Unified Framework for Detecting Out-of-Distribution Samples and Adversarial Attacks*. NeurIPS 2018. [arXiv:1807.03888](https://arxiv.org/abs/1807.03888)
+4. **Hendrycks, D., & Dietterich, T.** (2019). *Benchmarking Neural Network Robustness to Common Corruptions and Perturbations*. ICLR 2019. [arXiv:1903.12261](https://arxiv.org/abs/1903.12261)
+5. **Liu, W., Wang, X., Owens, J., & Li, Y.** (2020). *Energy-based Out-of-distribution Detection*. NeurIPS 2020. [arXiv:2010.03759](https://arxiv.org/abs/2010.03759)
 
 ---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the [MIT License](LICENSE).
