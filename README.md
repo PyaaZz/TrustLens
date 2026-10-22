@@ -12,45 +12,45 @@
 ## Architecture Overview
 
 ```
-                      +---------------------------------------+
-                      |             Input Image               |
-                      +---------------------------------------+
-                                          |
-                                          v
-                      +---------------------------------------+
-                      |      ResNet-18 Vision Backbone        |
-                      +---------------------------------------+
-                                    /           \
-               Deep Feature Vectors/             \ Raw Logits
-                                  /               \
-                                 v                 v
-                 +-------------------+     +-------------------+
-                 | Feature Extractor |     | Softmax / Scaling |
-                 +-------------------+     +-------------------+
-                           |                         |
-                           v                         v
-            +-----------------------------+   +-----------------------------+
-            |  Deep Feature Distances     |   | Probability & Energy Signal |
-            |  - Class Mahalanobis dist   |   | - Max Softmax Prob (MSP)    |
-            |  - KNN Nearest Neighbor     |   | - Predictive Entropy        |
-            +-----------------------------+   | - Free Energy Score         |
-                           \                  | - Temperature Calibrated ECE|
-                            \                 +-----------------------------+
-                             \                       /
-                              v                     v
-                     +---------------------------------------+
-                     |        Failure Detector Engine        |
-                     |  - Logistic / Ridge / Multi-signal    |
-                     |  - Threshold calibrated @ Target FPR  |
-                     +---------------------------------------+
-                                          |
-                                          v
-                     +---------------------------------------+
-                     |    Prediction Reliability Report      |
-                     |  [PASS / RELIABLE]  (Green)           |
-                     |  [WARNING / DEGRADED] (Yellow)        |
-                     |  [REJECT / UNRELIABLE] (Red)          |
-                     +---------------------------------------+
+          +---------------------------------------+
+          |             Input Image               |
+          +---------------------------------------+
+                              |
+                              v
+          +---------------------------------------+
+          |      ResNet-18 Vision Backbone        |
+          +---------------------------------------+
+                        /           \
+   Deep Feature Vectors/             \ Raw Logits
+                      /               \
+                     v                 v
+     +-------------------+     +-------------------+
+     | Feature Extractor |     | Softmax / Scaling |
+     +-------------------+     +-------------------+
+               |                         |
+               v                         v
++-----------------------------+   +-----------------------------+
+|  Deep Feature Distances     |   | Probability & Energy Signal |
+|  - Class Mahalanobis dist   |   | - Max Softmax Prob (MSP)    |
+|  - KNN Nearest Neighbor     |   | - Predictive Entropy        |
++-----------------------------+   | - Free Energy Score         |
+               \                  | - Temperature Calibrated ECE|
+                \                 +-----------------------------+
+                 \                       /
+                  v                     v
+         +---------------------------------------+
+         |        Failure Detector Engine        |
+         |  - Logistic / Ridge / Multi-signal    |
+         |  - Threshold calibrated @ Target FPR  |
+         +---------------------------------------+
+                              |
+                              v
+         +---------------------------------------+
+         |    Prediction Reliability Report      |
+         |  [PASS / RELIABLE]  (Green)           |
+         |  [WARNING / DEGRADED] (Yellow)        |
+         |  [REJECT / UNRELIABLE] (Red)          |
+         +---------------------------------------+
 ```
 
 ---
@@ -58,11 +58,11 @@
 ## Key Features
 
 - **Multi-Signal Reliability Profiling**:
-  - **Max Softmax Probability (MSP)**: Baseline confidence indicator ([Hendrycks & Gimpel, 2017](https://arxiv.org/abs/1610.02136)).
-  - **Predictive Shannon Entropy**: Dispersal of predicted class probability distributions.
-  - **Free Energy Score**: Unnormalized negative free energy tracking log-sum-exp density ([Liu et al., 2020](https://arxiv.org/abs/2010.03759)).
-  - **Deep Feature Space Distance**: Mahalanobis distance to class-conditional Gaussian centroids with shared covariance ([Lee et al., 2018](https://arxiv.org/abs/1807.03888)) and k-nearest neighbors.
-  - **Temperature-Calibrated Probabilities**: Platt-scaled logits optimizing negative log-likelihood for well-calibrated ECE ([Guo et al., 2017](https://arxiv.org/abs/1706.04599)).
+- **Max Softmax Probability (MSP)**: Baseline confidence indicator ([Hendrycks & Gimpel, 2017](https://arxiv.org/abs/1610.02136)).
+- **Predictive Shannon Entropy**: Dispersal of predicted class probability distributions.
+- **Free Energy Score**: Unnormalized negative free energy tracking log-sum-exp density ([Liu et al., 2020](https://arxiv.org/abs/2010.03759)).
+- **Deep Feature Space Distance**: Mahalanobis distance to class-conditional Gaussian centroids with shared covariance ([Lee et al., 2018](https://arxiv.org/abs/1807.03888)) and k-nearest neighbors.
+- **Temperature-Calibrated Probabilities**: Platt-scaled logits optimizing negative log-likelihood for well-calibrated ECE ([Guo et al., 2017](https://arxiv.org/abs/1706.04599)).
 - **Distribution Shift Evaluation**: Systematic benchmarking on CIFAR-10-C across 19 corruption categories at 5 severity levels ([Hendrycks & Dietterich, 2019](https://arxiv.org/abs/1903.12261)).
 - **Actionable Thresholding**: Configurable operating points tuned to fixed False Positive Rates (e.g., FPR@95TPR) to minimize safety-critical false acceptances.
 - **Interactive Streamlit Dashboard**: Full GUI for real-time single-sample inference, corruption sensitivity heatmaps, ROC/PR curves, and ablation studies.
@@ -116,11 +116,7 @@ Clone repository and install requirements in your environment:
 git clone https://github.com/your-username/TrustLens.git
 cd TrustLens
 python -m venv .venv
-# Windows:
 .venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
-
 pip install -r requirements.txt
 ```
 
@@ -135,13 +131,15 @@ Alternatively, follow manual instructions in [`data/README.md`](data/README.md).
 ### 3. Training the Base Model
 Train the ResNet-18 classifier on clean CIFAR-10:
 ```bash
-python -m models.classifier --train --epochs 100 --lr 0.1
+python experiments/baseline.py --epochs 100 --batch-size 128 --device auto
 ```
 
 ### 4. Running Failure & OOD Detection Experiments
 Evaluate reliability signals across clean and corrupted sets:
 ```bash
-python -m src.failure_detector --config configs/experiment.yaml
+python experiments/corruption_test.py --device auto
+python experiments/evaluate.py --device auto
+python experiments/ablation.py --device auto
 ```
 
 ### 5. Launching the Interactive Dashboard
@@ -171,21 +169,21 @@ TrustLens operates on the premise that no single heuristic is universally reliab
 | **Temperature Calibration** | Post-hoc scaling | $\sigma(z / T)$ | Recalibrates confidence estimates on clean val set to reflect true posterior probability. |
 
 By fusing these signals through a calibrated detector (e.g. regularized logistic regression on validation misclassifications), TrustLens identifies errors caused by:
-1. Borderline instances near decision boundaries.
-2. In-distribution model misclassifications.
-3. Natural corruptions and covariate shifts (blur, weather, digital noise).
-4. Out-of-distribution instances.
+- Borderline instances near decision boundaries.
+- In-distribution model misclassifications.
+- Natural corruptions and covariate shifts (blur, weather, digital noise).
+- Out-of-distribution instances.
 
 ---
 
 ## Experiments & Benchmarks
 
-1. **Clean Test Baseline**: Baseline classification accuracy and expected calibration error (ECE) before and after temperature scaling.
-2. **CIFAR-10-C Robustness**: Performance degradation across 19 corruption types with 5 severity tiers.
-3. **Signal Discriminative Power**: AUROC, AUPR, and FPR@95TPR for detecting incorrect classifications.
-4. **Generalization to Unseen Corruptions**: Train failure detector on 16 corruptions and test zero-shot on 3 held-out corruption modes (`frost`, `fog`, `brightness`).
-5. **Ablation Studies**: Evaluating individual signal performance versus joint multi-signal ensembles.
-6. **Inference Latency Tradeoff**: Overhead of feature extraction and distance calculations versus standard inference.
+- **Clean Test Baseline**: Baseline classification accuracy and expected calibration error (ECE) before and after temperature scaling.
+- **CIFAR-10-C Robustness**: Performance degradation across 19 corruption types with 5 severity tiers.
+- **Signal Discriminative Power**: AUROC, AUPR, and FPR@95TPR for detecting incorrect classifications.
+- **Generalization to Unseen Corruptions**: Train failure detector on 16 corruptions and test zero-shot on 3 held-out corruption modes (`frost`, `fog`, `brightness`).
+- **Ablation Studies**: Evaluating individual signal performance versus joint multi-signal ensembles.
+- **Inference Latency Tradeoff**: Overhead of feature extraction and distance calculations versus standard inference.
 
 ---
 
@@ -202,9 +200,9 @@ Pre-computed evaluation summaries and plots are stored under `results/`:
 
 ## Limitations
 
-1. **Feature Covariance Inversion**: For ultra-high dimensional representations, calculating full precision empirical covariance matrices can be ill-conditioned without shrinkage or diagonal approximations.
-2. **Computational Overhead**: Computing nearest neighbor or full Mahalanobis distances adds inference latency compared to simple forward-pass softmax readouts.
-3. **Severe Distribution Shift**: Under extreme semantic shifts, deep feature spaces can undergo unpredictable representations if the backbone has poor domain generalization.
+- **Feature Covariance Inversion**: For ultra-high dimensional representations, calculating full precision empirical covariance matrices can be ill-conditioned without shrinkage or diagonal approximations.
+- **Computational Overhead**: Computing nearest neighbor or full Mahalanobis distances adds inference latency compared to simple forward-pass softmax readouts.
+- **Severe Distribution Shift**: Under extreme semantic shifts, deep feature spaces can undergo unpredictable representations if the backbone has poor domain generalization.
 
 ---
 
