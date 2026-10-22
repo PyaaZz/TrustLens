@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit](https://img.shields.io/badge/dashboard-Streamlit-FF4B4B.svg)](https://streamlit.io/)
 
-**TrustLens** is a framework for detecting when deep learning classifiers are likely to make mistakes. Rather than blindly trusting raw softmax probabilities under distribution shift or out-of-distribution (OOD) inputs, TrustLens combines multi-layer epistemic uncertainty indicators—Max Softmax Probability (MSP), predictive entropy, free energy score, post-hoc temperature calibration, and deep Mahalanobis/KNN feature space distances—into a unified failure detector that flags untrustworthy predictions before they compromise downstream decision systems.
+**TrustLens** is a framework for detecting when deep learning classifiers are likely to make mistakes. Rather than blindly trusting raw softmax probabilities under distribution shift or out of distribution (OOD) inputs, TrustLens combines multilayer epistemic uncertainty indicators Max Softmax Probability (MSP), predictive entropy, free energy score, post hoc temperature calibration, and deep Mahalanobis/KNN feature space distances into a unified failure detector that flags untrustworthy predictions before they compromise downstream decision systems.
 
 ---
 
