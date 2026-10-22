@@ -12,45 +12,45 @@
 ## Architecture Overview
 
 ```
-                      +---------------------------------------+
-                      |             Input Image               |
-                      +---------------------------------------+
-                                          |
-                                          v
-                      +---------------------------------------+
-                      |      ResNet-18 Vision Backbone        |
-                      +---------------------------------------+
-                                    /           \
-               Deep Feature Vectors/             \ Raw Logits
-                                  /               \
-                                 v                 v
-                 +-------------------+     +-------------------+
-                 | Feature Extractor |     | Softmax / Scaling |
-                 +-------------------+     +-------------------+
-                           |                         |
-                           v                         v
-            +-----------------------------+   +-----------------------------+
-            |  Deep Feature Distances     |   | Probability & Energy Signal |
-            |  - Class Mahalanobis dist   |   | - Max Softmax Prob (MSP)    |
-            |  - KNN Nearest Neighbor     |   | - Predictive Entropy        |
-            +-----------------------------+   | - Free Energy Score         |
-                           \                  | - Temperature Calibrated ECE|
-                            \                 +-----------------------------+
-                             \                       /
-                              v                     v
-                     +---------------------------------------+
-                     |        Failure Detector Engine        |
-                     |  - Logistic / Ridge / Multi-signal    |
-                     |  - Threshold calibrated @ Target FPR  |
-                     +---------------------------------------+
-                                          |
-                                          v
-                     +---------------------------------------+
-                     |    Prediction Reliability Report      |
-                     |  [PASS / RELIABLE]  (Green)           |
-                     |  [WARNING / DEGRADED] (Yellow)        |
-                     |  [REJECT / UNRELIABLE] (Red)          |
-                     +---------------------------------------+
+          +---------------------------------------+
+          |             Input Image               |
+          +---------------------------------------+
+                              |
+                              v
+          +---------------------------------------+
+          |      ResNet-18 Vision Backbone        |
+          +---------------------------------------+
+                        /           \
+   Deep Feature Vectors/             \ Raw Logits
+                      /               \
+                     v                 v
+     +-------------------+     +-------------------+
+     | Feature Extractor |     | Softmax / Scaling |
+     +-------------------+     +-------------------+
+               |                         |
+               v                         v
++-----------------------------+   +-----------------------------+
+|  Deep Feature Distances     |   | Probability & Energy Signal |
+|  - Class Mahalanobis dist   |   | - Max Softmax Prob (MSP)    |
+|  - KNN Nearest Neighbor     |   | - Predictive Entropy        |
++-----------------------------+   | - Free Energy Score         |
+               \                  | - Temperature Calibrated ECE|
+                \                 +-----------------------------+
+                 \                       /
+                  v                     v
+         +---------------------------------------+
+         |        Failure Detector Engine        |
+         |  - Logistic / Ridge / Multi-signal    |
+         |  - Threshold calibrated @ Target FPR  |
+         +---------------------------------------+
+                              |
+                              v
+         +---------------------------------------+
+         |    Prediction Reliability Report      |
+         |  [PASS / RELIABLE]  (Green)           |
+         |  [WARNING / DEGRADED] (Yellow)        |
+         |  [REJECT / UNRELIABLE] (Red)          |
+         +---------------------------------------+
 ```
 
 ---
@@ -116,11 +116,7 @@ Clone repository and install requirements in your environment:
 git clone https://github.com/your-username/TrustLens.git
 cd TrustLens
 python -m venv .venv
-# Windows:
 .venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
-
 pip install -r requirements.txt
 ```
 
