@@ -53,7 +53,7 @@ except ImportError:
 
 st.set_page_config(
     page_title="TrustLens — AI Prediction Reliability",
-    page_icon="🛡️",
+    page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -333,7 +333,7 @@ def generate_synthetic_cifar_sample(preset_name: str) -> Tuple[Image.Image, np.n
 
 def render_overview(data: Dict[str, Any]) -> None:
     """Renders Project Overview, core architecture, and baseline KPIs."""
-    st.title("🛡️ TrustLens — AI Prediction Reliability")
+    st.title("🔍 TrustLens — AI Prediction Reliability")
     st.markdown(
         "**TrustLens** monitors convolutional neural network predictions in real-time, "
         "leveraging multi-signal epistemic indicators to proactively catch model failures, "
@@ -1056,7 +1056,7 @@ def main() -> None:
     _ = load_model_pipeline()
 
     # Sidebar Navigation
-    st.sidebar.image("https://img.icons8.com/fluency/96/shield.png", width=64)
+    st.sidebar.image("https://img.icons8.com/fluency/96/search.png", width=64)
     st.sidebar.title("TrustLens")
     st.sidebar.caption("AI Prediction Reliability Detection")
 

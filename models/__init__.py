@@ -1,4 +1,4 @@
-"""ModelGuard models package.
+"""TrustLens models package.
 
 Provides architecture definitions and training/evaluation utilities.
 """

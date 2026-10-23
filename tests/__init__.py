@@ -1,1 +1,1 @@
-"""ModelGuard test suite package."""
+"""TrustLens test suite package."""

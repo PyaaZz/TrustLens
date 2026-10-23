@@ -180,7 +180,7 @@ def generate_summary_report(summary_data: Dict[str, Any], report_path: Path) -> 
 
     lines = []
     lines.append("================================================================================")
-    lines.append("                        MODELGUARD EXECUTIVE SUMMARY REPORT                     ")
+    lines.append("                        TRUSTLENS EXECUTIVE SUMMARY REPORT                     ")
     lines.append("================================================================================")
     lines.append(f"Generated At: {summary_data.get('generated_at', 'N/A')}")
     lines.append("Project: TrustLens Reliable ML Monitoring & Failure Detection Pipeline")
